@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <application
+        android:allowBackup="true"
+        android:label="@string/app_name"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.DouyinLowLikeFilter"
+        tools:ignore="MissingApplicationIcon">
+
+        <!-- 是否为 Xposed 模块 -->
+        <meta-data
+            android:name="xposedmodule"
+            android:value="true" />
+
+        <!-- 模块简介 -->
+        <meta-data
+            android:name="xposeddescription"
+            android:value="过滤抖音低赞视频，自定义点赞数阈值" />
+
+        <!-- 最低 Xposed API 版本（LSPosed 推荐 93） -->
+        <meta-data
+            android:name="xposedminversion"
+            android:value="93" />
+
+        <!-- 模块作用域 -->
+        <meta-data
+            android:name="xposedscope"
+            android:resource="@array/xposedscope" />
+
+        <!-- 隐藏桌面图标，但仍保留 Activity 供 LSPosed 打开 -->
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:label="@string/app_name">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <!-- 移除 LAUNCHER category，隐藏桌面图标 -->
+            </intent-filter>
+        </activity>
+
+    </application>
+
+</manifest>

@@ -1,0 +1,190 @@
+# 抖音低赞视频过滤器 (DouyinLowLikeFilter)
+
+一个基于 **LSPosed/Xposed** 框架的抖音模块，可以自动过滤推荐流中点赞数低于自定义阈值的视频。
+
+---
+
+## 功能特性
+
+- **早期初始化**：Hook `Application.onCreate` 在首帧数据前加载用户配置，冷启动不漏
+- **预加载拦截**：在数据解析阶段提前过滤，避免"看到再消失"的尴尬
+- **UI 层兜底**：Hook `RecyclerView.Adapter.onBindViewHolder`，隐藏所有漏过数据层的低赞视频（包括本地缓存数据）
+- **智能过滤**：自动过滤推荐页中点赞数低于阈值的视频
+- **自定义点赞数阈值**：设置最低点赞数，低于此值的视频会被自动跳过
+- **原生设置入口**：设置项集成在抖音「通用设置」页面，无需额外 App
+- **无桌面图标**：模块安装后无桌面图标，完全静默运行
+- **多级 Hook 策略**：自动尝试多个 Hook 点，兼容不同抖音版本
+- **防混淆设计**：通过反射兜底，即使字段名被混淆也能工作
+- **精准页面过滤**：通过调用栈分析，仅在推荐页生效，不影响其他页面
+
+---
+
+## 项目结构
+
+```
+DouyinLowLikeFilter/
+├── app/
+│   ├── build.gradle                          # App 级构建配置
+│   ├── proguard-rules.pro
+│   └── src/main/
+│       ├── AndroidManifest.xml               # 声明 Xposed 模块
+│       ├── assets/
+│       │   └── xposed_init                   # Hook 入口类路径
+│       ├── java/com/example/douyinlowlikefilter/
+│       │   ├── MainActivity.java             # 模块说明界面
+│       │   └── MainHook.java                 # 核心 Hook 逻辑
+│       └── res/
+│           ├── layout/activity_main.xml
+│           ├── values/
+│           │   ├── strings.xml
+│           │   ├── themes.xml
+│           │   └── arrays.xml                # 模块作用域
+│           └── xml/
+├── build.gradle                              # 根构建配置
+├── settings.gradle                           # 仓库配置（含 Xposed API）
+├── gradle.properties
+└── gradle/wrapper/
+```
+
+---
+
+## Hook 原理
+
+抖音推荐流的数据流程：
+
+```
+网络请求 → JSON解析 → 转成 Aweme(视频对象) → 填充列表 → RecyclerView 渲染
+```
+
+本模块在 **"JSON 解析后"** 立即拦截过滤，并在 UI 层补刀：
+
+```
+网络请求 → JSON解析 → 【Hook①：解析阶段过滤】 → 填充列表 → 【Hook②：UI层隐藏】 → 渲染
+```
+
+冷启动时的本地缓存数据也会被 UI 层拦截，完全无感过滤。
+
+### 五级 Hook 策略
+
+| 优先级 | Hook 点 | 作用时机 | 说明 |
+|--------|---------|----------|------|
+| 1 | `Application.onCreate` | 进程启动时 | **最早初始化**，确保冷启动配置正确 |
+| 2 | `Gson.fromJson()` | 解析阶段 | **预加载拦截**，网络数据最早过滤 |
+| 3 | `FeedItemList.getItems()` | 列表填充前 | 稳定、性能优 |
+| 4 | `FeedModel` 返回方法 | 数据返回时 | 覆盖面广 |
+| 5 | `RecyclerView.Adapter.onBindViewHolder` | UI 绑定时 | **兜底**，缓存数据最后防线 |
+
+### 页面来源检测策略
+
+通过调用栈分析判断视频列表来源，仅在推荐页生效：
+- **推荐页**：类名包含 `homepage`、`homefeed`、`recommend`、`hot` → **过滤生效**
+- **其他页面**（关注/喜欢/收藏/搜索等）：**不过滤**，避免误伤
+
+### 获取点赞数的防混淆策略
+
+```
+1. 直接字段：aweme.statistics.diggCount
+2. Getter方法：aweme.getStatistics().getDiggCount()
+3. 反射遍历：搜索 long 类型字段中名称含 "digg"/"like" 的
+```
+
+---
+
+## 如何编译
+
+### 前置要求
+
+- Android Studio (最新稳定版) 或 Gradle 8.5+
+- JDK 17+
+- Android SDK 34
+
+### 使用 Android Studio
+
+1. 用 Android Studio 打开项目根目录
+2. 等待 Gradle Sync 完成
+3. 点击 `Build → Build APK(s)`
+4. APK 输出在 `app/build/outputs/apk/debug/`
+
+### 使用命令行
+
+```bash
+# Windows
+.\gradlew.bat build
+
+# macOS/Linux
+./gradlew build
+```
+
+APK 输出位置：
+- Debug: `app/build/outputs/apk/debug/app-debug.apk`
+- Release: `app/build/outputs/apk/release/app-release.apk`
+
+> **注意**：首次编译会自动下载 Gradle Wrapper，请确保网络畅通。
+
+---
+
+## 如何安装使用
+
+1. **安装模块**：将编译好的 APK 安装到手机
+2. **激活模块**：
+   - 打开 LSPosed 管理器
+   - 在「模块」页面找到「抖音低赞过滤」
+   - 勾选启用，并选择作用域为 **抖音**
+   - 强制停止并重新打开 LSPosed
+3. **设置阈值**：
+   - 打开抖音 → 我 → 设置 → 通用设置
+   - 页面底部找到「低赞视频过滤」选项
+   - 点击设置最低点赞数（默认 1000）
+4. **重启抖音**：强制停止抖音后重新打开
+
+### 验证模块是否生效
+
+- 将阈值设为极大值（如 99999999）
+- 如果推荐流视频全部消失 → Hook 成功
+- 如果无变化 → Hook 点可能不适用于当前版本
+
+---
+
+## 版本适配
+
+本模块针对 **抖音 37.9.0** 设计，但通过多级 Hook 策略和反射兜底，可以适配一定范围的其他版本。
+
+如果模块不生效，可能原因：
+1. 抖音更新后类名/字段名变化
+2. Hook 点被移除或重构
+3. 列表变为不可修改类型（已处理）
+
+### 适配新版本
+
+1. 用 **JADX** 反编译新版本抖音 APK
+2. 搜索关键词：`diggCount`、`FeedItemList`、`getItems`、`FeedResponse`
+3. 更新 `MainHook.java` 中的类名和方法名
+4. 重新编译安装
+
+---
+
+## 注意事项
+
+- 模块**仅在推荐页生效**，不影响关注页、喜欢页、搜索页等其他页面
+- 过滤的是**已加载**的数据，不会影响抖音的推荐算法
+- 如果抖音频繁更新，模块可能需要跟着适配
+- 模块安装后**无桌面图标**，设置入口在抖音「通用设置」页面
+- 如需查看模块说明，可在 LSPosed 模块列表中点击本模块打开
+
+---
+
+## 技术亮点
+
+- **早期初始化**：Hook `Application.onCreate` 最早加载配置，冷启动不用默认值
+- **预加载拦截**：Hook Gson 解析阶段，在数据填充列表前就完成过滤，避免"看到再消失"
+- **UI 层兜底**：Hook `RecyclerView.Adapter.onBindViewHolder`，冷启动缓存数据也逃不掉
+- **设置入口嵌入**：通过 Hook `SettingCommonProtocolActivity`，将设置项无缝集成到抖音原生设置页面
+- **无侵入设计**：无悬浮窗、无后台服务、无桌面图标，完全静默运行
+- **三层兜底**：Application 早期初始化 → 预加载 Hook → UI 层，确保过滤可靠性
+- **精准定位**：通过调用栈分析精确识别推荐页上下文，避免误过滤
+
+---
+
+## License
+
+MIT License - 仅供学习交流使用

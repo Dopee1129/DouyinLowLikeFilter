@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.DouyinLowLikeFilter" parent="Theme.MaterialComponents.Light.DarkActionBar">
+        <item name="colorPrimary">#FF000000</item>
+        <item name="colorPrimaryVariant">#FF000000</item>
+        <item name="colorOnPrimary">#FFFFFFFF</item>
+        <item name="colorSecondary">#FFFE2C55</item>
+        <item name="colorSecondaryVariant">#FFFE2C55</item>
+        <item name="colorOnSecondary">#FFFFFFFF</item>
+    </style>
+</resources>
